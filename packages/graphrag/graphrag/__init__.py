@@ -69,8 +69,10 @@ def _clean_request_content(request):
     try:
         # 仅针对你的 Embedding 服务 URL 进行拦截
         # 检查是否是发往 textembeddingservice 的 POST 请求
+        # 注意：这里最好确保 url 判断足够准确
         if "textembeddingservice" in str(request.url) and request.method == "POST":
             # 获取原始 body (bytes)
+            # 注意：request.content 会读取整个流，这对于在此处修改是必要的
             body_bytes = request.content
             if not body_bytes:
                 return
@@ -96,12 +98,19 @@ def _clean_request_content(request):
                 # 如果有修改，重新打包 Request
                 if changed:
                     new_body = json.dumps(data).encode("utf-8")
-                    # HTTPX 的 Request 对象修改 content 比较 hacky，但必须这样做
-                    # 这里的 _content 是内部属性，但在 send 阶段修改是安全的
+                    
+                    # 1. 更新内部 content 属性
                     request._content = new_body 
-                    # 必须更新 Content-Length，否则服务器会报错或截断
+                    
+                    # 2. 关键修复：更新 Content-Length 头
                     request.headers["Content-Length"] = str(len(new_body))
-                    # print(f">>> [Patch] Cleaned parameters for {request.url}")
+                    
+                    # 3. ！！！核心修复！！！
+                    # 重置 stream，否则 httpx 还是会发送旧的 body
+                    # httpx.ByteStream 是 httpx 处理内存字节流的标准方式
+                    request.stream = httpx.ByteStream(new_body)
+                    
+                    # print(f">>> [Patch] Cleaned parameters for {request.url}. Size: {len(body_bytes)} -> {len(new_body)}")
     except Exception as e:
         print(f">>> [Patch Warning] Failed to clean request: {e}")
 
