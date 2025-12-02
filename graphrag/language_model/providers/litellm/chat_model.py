@@ -294,7 +294,7 @@ class LitellmChatModel:
         })
 
         parsed_response: BaseModel | None = None
-        # --- 修改开始: 增加容错和日志 ---
+        # 增加容错和日志
         if "response_format" in new_kwargs:
             import logging
             import re
@@ -322,8 +322,8 @@ class LitellmChatModel:
                     else:
                         raise e # 正则也没找到，继续抛出异常
                 except Exception:
-                    # 4. 最终兜底：如果是空或者无法修复，返回空字典防止程序崩溃
-                    # 注意：如果你的业务必须要有数据，这里可以选择 raise e
+                    # 4. 最终处理：如果是空或者无法修复，返回空字典防止程序崩溃
+                    # 注意：如果逻辑上必须要有数据，这里可以选择 raise e
                     logger.error("Failed to parse JSON even after repair. Returning empty dict.")
                     parsed_dict = {}
 
@@ -344,7 +344,6 @@ class LitellmChatModel:
                     logger.error(f"Pydantic Validation Error: {e}")
                     # 如果校验失败，可以选择返回 None 或空对象，视具体逻辑而定
                     pass
-        # --- 修改结束 ---
 
         return LitellmModelResponse(
             output=LitellmModelOutput(

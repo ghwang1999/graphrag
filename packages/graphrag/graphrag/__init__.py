@@ -2,7 +2,7 @@
 # Licensed under the MIT License
 
 """The GraphRAG package."""
-# --- BEGIN FINAL PATCH (SSL + HTTPX SEND INTERCEPT) ---
+
 import os
 import ssl
 import json
@@ -28,7 +28,7 @@ def _new_httpx_init(self, *args, **kwargs):
     # 1. 禁用 SSL
     kwargs["verify"] = False
     
-    # 2. 【新增】强制设置底层超时时间 (connect=60s, read/write/pool=600s)
+    # 2. 强制设置底层超时时间 (connect=60s, read/write/pool=600s)
     # 这样无论上层怎么传参，底层都会等待至少 10 分钟
     kwargs["timeout"] = httpx.Timeout(600.0, connect=60.0)
     
@@ -57,7 +57,7 @@ aiohttp.TCPConnector.__init__ = _new_aiohttp_connector_init
 # ==========================================
 # 2. HTTPX Send 拦截 (数据层清洗)
 # ==========================================
-# 这是 OpenAI SDK 真正发送数据的出口，拦截这里绝对有效。
+# 这是 OpenAI SDK 真正发送数据的出口，拦截这里有效。
 
 _orig_async_send = httpx.AsyncClient.send
 _orig_sync_send = httpx.Client.send
@@ -67,9 +67,9 @@ def _clean_request_content(request):
     检查并清洗 Request 中的非法参数 (encoding_format, user)
     """
     try:
-        # 仅针对你的 Embedding 服务 URL 进行拦截
+        # 仅针对cnai Embedding 服务 URL 进行拦截
         # 检查是否是发往 textembeddingservice 的 POST 请求
-        # 注意：这里最好确保 url 判断足够准确
+        # 注意：这里确保 url 判断准确
         if "textembeddingservice" in str(request.url) and request.method == "POST":
             # 获取原始 body (bytes)
             # 注意：request.content 会读取整个流，这对于在此处修改是必要的
@@ -81,7 +81,7 @@ def _clean_request_content(request):
             try:
                 data = json.loads(body_bytes)
             except json.JSONDecodeError:
-                return # 不是 JSON，不管它
+                return # 不是 JSON，不做处理
 
             if isinstance(data, dict):
                 changed = False
@@ -102,10 +102,10 @@ def _clean_request_content(request):
                     # 1. 更新内部 content 属性
                     request._content = new_body 
                     
-                    # 2. 关键修复：更新 Content-Length 头
+                    # 2. 关键：更新 Content-Length 头
                     request.headers["Content-Length"] = str(len(new_body))
                     
-                    # 3. ！！！核心修复！！！
+                    # 3. 关键
                     # 重置 stream，否则 httpx 还是会发送旧的 body
                     # httpx.ByteStream 是 httpx 处理内存字节流的标准方式
                     request.stream = httpx.ByteStream(new_body)
@@ -129,4 +129,3 @@ httpx.AsyncClient.send = _new_async_send
 httpx.Client.send = _new_sync_send
 
 print(">>> [GraphRAG Patch] Loaded: SSL Disabled & HTTPX Traffic Interceptor Active.")
-# --- END FINAL PATCH ---
