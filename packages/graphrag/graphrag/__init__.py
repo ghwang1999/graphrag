@@ -128,4 +128,4 @@ def _new_sync_send(self, request, *args, **kwargs):
 httpx.AsyncClient.send = _new_async_send
 httpx.Client.send = _new_sync_send
 
-print(">>> [GraphRAG Patch] Loaded: SSL Disabled & HTTPX Traffic Interceptor Active.")
+# print(">>> [GraphRAG Patch] Loaded: SSL Disabled & HTTPX Traffic Interceptor Active.")
